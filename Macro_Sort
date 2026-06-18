@@ -1,0 +1,201 @@
+Sub ExtractTestDataWithNP_Issues()
+    Dim wordDoc As Document
+    Dim excelApp As Object
+    Dim excelWb As Object
+    Dim excelWs As Object
+    Dim regExID As Object, regExIssue As Object
+    Dim matches As Object
+    Dim para As Paragraph
+    Dim currentText As String
+    
+    Dim currentTestID As String
+    Dim currentStatus As String
+    Dim currentIssue As String
+    
+    ' Row pointers for our tables
+    Dim nokRow As Long, okRow As Long, npRow As Long, emptyRow As Long
+    
+    Set wordDoc = ActiveDocument
+    
+    ' Setup Regex
+    Set regExID = CreateObject("VBScript.RegExp")
+    regExID.Pattern = "SWTP_[A-Z0-9_]+"
+    regExID.IgnoreCase = True
+    
+    Set regExIssue = CreateObject("VBScript.RegExp")
+    regExIssue.Pattern = "CYBSAF-\d+"
+    regExIssue.IgnoreCase = True
+    
+    ' Initialize Excel
+    On Error Resume Next
+    Set excelApp = GetObject(, "Excel.Application")
+    If excelApp Is Nothing Then
+        Set excelApp = CreateObject("Excel.Application")
+    End If
+    On Error GoTo 0
+    
+    excelApp.Visible = True
+    Set excelWb = excelApp.Workbooks.Add
+    Set excelWs = excelWb.Sheets(1)
+    excelWs.Name = "Test Dashboard"
+    
+    ' Enable gridlines explicitly
+    excelApp.ActiveWindow.DisplayGridLines = True
+    
+    ' ==========================================
+    ' 1. STATISTICS / DASHBOARD SECTION (Top Left)
+    ' ==========================================
+    excelWs.Cells(2, 1).Value = "TEST EXECUTION SUMMARY"
+    excelWs.Cells(2, 1).Font.Size = 12
+    excelWs.Cells(2, 1).Font.Bold = True
+    excelWs.Cells(2, 1).Font.Color = RGB(26, 54, 93)
+    
+    excelWs.Cells(4, 1).Value = "Metric"
+    excelWs.Cells(4, 2).Value = "Count"
+    excelWs.Range("A4:B4").Font.Bold = True
+    excelWs.Range("A4:B4").Interior.Color = RGB(226, 232, 240)
+    
+    excelWs.Cells(5, 1).Value = "Passed Tests (OK)"
+    excelWs.Cells(6, 1).Value = "Failed Tests (NOK)"
+    excelWs.Cells(7, 1).Value = "Not Processed (NP)"
+    excelWs.Cells(8, 1).Value = "Missing Status (EMPTY)"
+    excelWs.Cells(9, 1).Value = "Total Tests"
+    excelWs.Cells(9, 1).Font.Bold = True
+    
+    ' Excel Formulas for dynamic counting
+    excelWs.Cells(5, 2).Value = "=COUNTA(E13:E5000)"
+    excelWs.Cells(6, 2).Value = "=COUNTA(A13:A5000)"
+    excelWs.Cells(7, 2).Value = "=COUNTA(H13:H5000)"
+    excelWs.Cells(8, 2).Value = "=COUNTA(K13:K5000)"
+    excelWs.Cells(9, 2).Value = "=SUM(B5:B8)"
+    excelWs.Cells(9, 2).Font.Bold = True
+    
+    ' Border for metrics block
+    excelWs.Range("A4:B9").Borders.LineStyle = 1
+    
+    ' ==========================================
+    ' 2. INDIVIDUAL TABLES SETUP (Starting Row 11)
+    ' ==========================================
+    Dim startRow As Long
+    startRow = 11
+    
+    ' Table 1: NOK
+    excelWs.Cells(startRow, 1).Value = "Failed Tests (NOK)"
+    excelWs.Cells(startRow, 1).Font.Bold = True
+    excelWs.Cells(startRow + 1, 1).Value = "Test ID"
+    excelWs.Cells(startRow + 1, 2).Value = "Status"
+    excelWs.Cells(startRow + 1, 3).Value = "Associated Issue"
+    excelWs.Range("A12:C12").Interior.Color = RGB(140, 45, 25)
+    excelWs.Range("A12:C12").Font.Color = RGB(255, 255, 255)
+    excelWs.Range("A12:C12").Font.Bold = True
+    nokRow = startRow + 2
+    
+    ' Table 2: OK
+    excelWs.Cells(startRow, 5).Value = "Passed Tests (OK)"
+    excelWs.Cells(startRow, 5).Font.Bold = True
+    excelWs.Cells(startRow + 1, 5).Value = "Test ID"
+    excelWs.Cells(startRow + 1, 6).Value = "Status"
+    excelWs.Range("E12:F12").Interior.Color = RGB(46, 105, 48)
+    excelWs.Range("E12:F12").Font.Color = RGB(255, 255, 255)
+    excelWs.Range("E12:F12").Font.Bold = True
+    okRow = startRow + 2
+    
+    ' Table 3: NP (Updated to include an 'Associated Issue' column)
+    excelWs.Cells(startRow, 8).Value = "Not Processed (NP)"
+    excelWs.Cells(startRow, 8).Font.Bold = True
+    excelWs.Cells(startRow + 1, 8).Value = "Test ID"
+    excelWs.Cells(startRow + 1, 9).Value = "Status"
+    excelWs.Cells(startRow + 1, 10).Value = "Associated Issue"
+    excelWs.Range("H12:J12").Interior.Color = RGB(74, 101, 114)
+    excelWs.Range("H12:J12").Font.Color = RGB(255, 255, 255)
+    excelWs.Range("H12:J12").Font.Bold = True
+    npRow = startRow + 2
+    
+    ' Table 4: EMPTY STATUS
+    excelWs.Cells(startRow, 12).Value = "Missing Status (EMPTY)"
+    excelWs.Cells(startRow, 12).Font.Bold = True
+    excelWs.Cells(startRow + 1, 12).Value = "Test ID"
+    excelWs.Cells(startRow + 1, 13).Value = "Status"
+    excelWs.Range("L12:M12").Interior.Color = RGB(218, 165, 32)
+    excelWs.Range("L12:M12").Font.Color = RGB(255, 255, 255)
+    excelWs.Range("L12:M12").Font.Bold = True
+    emptyRow = startRow + 2
+
+    ' ==========================================
+    ' 3. PARSING DATA FROM WORD
+    ' ==========================================
+    For Each para In wordDoc.Paragraphs
+        currentText = Trim(Replace(para.Range.text, Chr(13), ""))
+        currentText = Replace(currentText, Chr(7), "")
+        
+        If regExID.Test(currentText) Then
+            ' Process previous item before tracking the new one
+            If currentTestID <> "" Then
+                Call WriteToExcelFinal(excelWs, currentTestID, currentStatus, currentIssue, nokRow, okRow, npRow, emptyRow)
+            End If
+            
+            Set matches = regExID.Execute(currentText)
+            currentTestID = matches(0).Value
+            currentStatus = ""
+            currentIssue = ""
+        End If
+        
+        If currentTestID <> "" Then
+            Dim testCheck As String
+            testCheck = UCase(Trim(currentText))
+            
+            ' Robust edge checking for precise status matching
+            If testCheck = "NOK" Or InStr(1, currentText, ",NOK,", vbTextCompare) > 0 Then
+                currentStatus = "NOK"
+            ElseIf testCheck = "OK" Or InStr(1, currentText, ",OK,", vbTextCompare) > 0 Then
+                currentStatus = "OK"
+            ElseIf testCheck = "NP" Or InStr(1, currentText, ",NP,", vbTextCompare) > 0 Then
+                currentStatus = "NP"
+            End If
+            
+            ' Look for an issue code (Captures for either NOK or NP blocks)
+            If regExIssue.Test(currentText) Then
+                Set matches = regExIssue.Execute(currentText)
+                currentIssue = matches(0).Value
+            End If
+        End If
+    Next para
+    
+    ' Catch the last block
+    If currentTestID <> "" Then
+        Call WriteToExcelFinal(excelWs, currentTestID, currentStatus, currentIssue, nokRow, okRow, npRow, emptyRow)
+    End If
+    
+    ' Finish formatting
+    excelWs.Columns("A:N").AutoFit
+    MsgBox "Analysis Complete! NP table now logs corresponding issues.", vbInformation
+End Sub
+
+Sub WriteToExcelFinal(ws As Object, tID As String, stat As String, iss As String, ByRef nRow As Long, ByRef oRow As Long, ByRef pRow As Long, ByRef eRow As Long)
+    If Trim(stat) = "" Then stat = "EMPTY"
+
+    Select Case UCase(stat)
+        Case "NOK"
+            ws.Cells(nRow, 1).Value = tID
+            ws.Cells(nRow, 2).Value = stat
+            ws.Cells(nRow, 3).Value = iss
+            ws.Range(ws.Cells(nRow, 1), ws.Cells(nRow, 3)).Borders.LineStyle = 1
+            nRow = nRow + 1
+        Case "OK"
+            ws.Cells(oRow, 5).Value = tID
+            ws.Cells(oRow, 6).Value = stat
+            ws.Range(ws.Cells(oRow, 5), ws.Cells(oRow, 6)).Borders.LineStyle = 1
+            oRow = oRow + 1
+        Case "NP"
+            ws.Cells(pRow, 8).Value = tID
+            ws.Cells(pRow, 9).Value = stat
+            ws.Cells(pRow, 10).Value = iss ' <-- Added issue tracking mapping for NP
+            ws.Range(ws.Cells(pRow, 8), ws.Cells(pRow, 10)).Borders.LineStyle = 1
+            pRow = pRow + 1
+        Case "EMPTY"
+            ws.Cells(eRow, 12).Value = tID
+            ws.Cells(eRow, 13).Value = "MISSING"
+            ws.Range(ws.Cells(eRow, 12), ws.Cells(eRow, 13)).Borders.LineStyle = 1
+            eRow = eRow + 1
+    End Select
+End Sub
