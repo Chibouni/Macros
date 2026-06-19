@@ -116,7 +116,7 @@ Sub ExtractAndCenterTestData_v5()
     emptyRow = startRow + 2
 
     ' ==========================================
-    ' 2. LOOP WORD TABLES, APPLY LOGIC, CENTERING
+    ' 2. LOOP WORD TABLES, READ VALUES & CENTER
     ' ==========================================
     For Each tbl In wordDoc.Tables
         colStatus = 0
@@ -124,6 +124,9 @@ Sub ExtractAndCenterTestData_v5()
         colIssue = 0
         rHeader = 0
         currentTestID = ""
+        currentStatus = ""
+        currentIssue = ""
+        currentComment = ""
         
         ' Find the parent tracking Test ID by checking text right above this table structure
         On Error Resume Next
@@ -144,7 +147,7 @@ Sub ExtractAndCenterTestData_v5()
         End If
         On Error GoTo 0
         
-        ' Map columns based on your Rectify logic
+        ' Map columns based on text positions
         For r = 1 To tbl.Rows.Count
             For c = 1 To tbl.Columns.Count
                 On Error Resume Next
@@ -166,54 +169,40 @@ Sub ExtractAndCenterTestData_v5()
                     rHeader = r
                 End If
             Next c
-        For Each row_dummy In tbl.Rows: Next ' keep structured context
         Next r
         
-        ' Process the row below the headers exactly as requested
+        ' Center alignment and value extraction on the row below headers
         If rHeader > 0 And rHeader + 1 <= tbl.Rows.Count Then
-            
-            ' --- MODIFICATION & FORCE CENTERING BLOCK INSIDE WORD ---
             On Error Resume Next
             
-            ' 1. Process Comments Column
+            ' 1. Comments Column
             If colComments > 0 Then
-                ' Read existing text to check if it's empty or needs to be "Not passed"
                 txt = Replace(Replace(tbl.Cell(rHeader + 1, colComments).Range.Text, Chr(13), ""), Chr(7), "")
-                If Trim(txt) = "" And colStatus > 0 Then
-                    ' Optional condition matching your FillNP: if it's empty, update it
-                    tbl.Cell(rHeader + 1, colComments).Range.Text = "Not passed"
-                    txt = "Not passed"
-                End If
                 currentComment = Trim(txt)
                 
-                ' ALIGN CENTER IN THE MIDDLE (Horizontal + Vertical Center alignment)
-                tbl.Cell(rHeader + 1, colComments).Range.ParagraphFormat.Alignment = 1 ' Center Horizontally
-                tbl.Cell(rHeader + 1, colComments).VerticalAlignment = 1               ' Center Vertically (wdCellAlignVerticalCenter)
+                ' Strict Centering Setup (Middle Center Alignment)
+                tbl.Cell(rHeader + 1, colComments).Range.ParagraphFormat.Alignment = 1
+                tbl.Cell(rHeader + 1, colComments).VerticalAlignment = 1
             End If
             
-            ' 2. Process Status Column
+            ' 2. Status Column
             If colStatus > 0 Then
                 txt = Replace(Replace(tbl.Cell(rHeader + 1, colStatus).Range.Text, Chr(13), ""), Chr(7), "")
-                ' If your macro targets modifying it to "NP"
-                If Trim(txt) = "" Or UCase(Trim(txt)) = "NP" Then
-                    tbl.Cell(rHeader + 1, colStatus).Range.Text = "NP"
-                    txt = "NP"
-                End If
                 currentStatus = UCase(Trim(txt))
                 
-                ' ALIGN CENTER IN THE MIDDLE (Horizontal + Vertical Center alignment)
-                tbl.Cell(rHeader + 1, colStatus).Range.ParagraphFormat.Alignment = 1 ' Center Horizontally
-                tbl.Cell(rHeader + 1, colStatus).VerticalAlignment = 1               ' Center Vertically (wdCellAlignVerticalCenter)
+                ' Strict Centering Setup (Middle Center Alignment)
+                tbl.Cell(rHeader + 1, colStatus).Range.ParagraphFormat.Alignment = 1
+                tbl.Cell(rHeader + 1, colStatus).VerticalAlignment = 1
             End If
             
-            ' 3. Process Issue Column
+            ' 3. Issue Column
             If colIssue > 0 Then
                 txt = Replace(Replace(tbl.Cell(rHeader + 1, colIssue).Range.Text, Chr(13), ""), Chr(7), "")
                 currentIssue = Trim(txt)
                 
-                ' ALIGN CENTER IN THE MIDDLE (Horizontal + Vertical Center alignment)
-                tbl.Cell(rHeader + 1, colIssue).Range.ParagraphFormat.Alignment = 1 ' Center Horizontally
-                tbl.Cell(rHeader + 1, colIssue).VerticalAlignment = 1               ' Center Vertically (wdCellAlignVerticalCenter)
+                ' Strict Centering Setup (Middle Center Alignment)
+                tbl.Cell(rHeader + 1, colIssue).Range.ParagraphFormat.Alignment = 1
+                tbl.Cell(rHeader + 1, colIssue).VerticalAlignment = 1
             End If
             On Error GoTo 0
             
@@ -240,7 +229,7 @@ Sub ExtractAndCenterTestData_v5()
     If emptyRow > 13 Then excelWs.Range("N13:N" & (emptyRow - 1)).HorizontalAlignment = -4108
     
     excelWs.Columns("A:O").AutoFit
-    MsgBox "Done! Word file tables corrected and centered. Excel Dashboard Generated.", vbInformation
+    MsgBox "Done! Word file tables centered seamlessly. Excel Dashboard Generated.", vbInformation
 End Sub
 
 Sub WriteToExcelFinal(ws As Object, tID As String, stat As String, iss As String, comm As String, ByRef nRow As Long, ByRef oRow As Long, ByRef pRow As Long, ByRef eRow As Long)
