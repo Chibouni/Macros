@@ -11,7 +11,7 @@ from openpyxl.styles import PatternFill, Font, Border, Side, Alignment
 def create_dashboard(data, output_excel):
 
     df = pd.DataFrame(data)
-
+    
     # Normalize status
     df["Status"] = df["Status"].fillna("").str.upper().str.strip()
 
@@ -29,12 +29,11 @@ def create_dashboard(data, output_excel):
     np_df = df[df["Status"] == "NP"][
         ["Test_ID", "Status", "Comment", "Issue", ]
     ]
-
+    
     # Missing status
     empty_df = df[df["Status"] == ""][
         ["Test_ID"]
     ]
-
 
     wb = Workbook()
     ws = wb.active
@@ -285,7 +284,7 @@ def extract_test_data(docx_path, output_excel):
 
 
     print("Extracted tests:", len(data))
-
+    
 
     # Create styled dashboard
     create_dashboard(data, output_excel)
@@ -298,6 +297,6 @@ def extract_test_data(docx_path, output_excel):
 if __name__ == "__main__":
 
     extract_test_data(
-        "D0000958 SWTP A1 _ OVERALL validation test report for SPU70-66-GEN1.5 CS.docx",
+        "EX1.docx",
         "Test_Dashboard.xlsx"
     )
